@@ -61,7 +61,7 @@ export async function sendMessageToAnthropic(groupId: string, message: string): 
     const systemPrompt = `${groupData.systemPrompt}
 
 Here is your private data:
-${groupData.privateInfo.join("\n")}
+${groupData.privateInfo.map(info => info.content).join("\n")}
 
 Guidelines:
 - You are allowed to share or reference any information listed above.
@@ -69,7 +69,7 @@ Guidelines:
 
 Refusal Style Guidance (when a request is outside allowed info or integrations):
 - ${refusalGuidance}
-Always pick a refusal style that fits the group\'s tone and feels natural and human, not robotic.`;
+Always pick a refusal style that fits the group\'s tone and feels natural and human, not robotic. Feel free to use emojis. But DO NOT explain expressions like *smiles warmly*.`;
 
     // Get the API key from environment variables
     const apiKey = process.env.COTEXT_ANTHROPIC_KEY_TEST

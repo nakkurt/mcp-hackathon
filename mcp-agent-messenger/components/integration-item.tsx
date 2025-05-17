@@ -1,255 +1,231 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ChevronRight, Plus, X } from "lucide-react"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
+import { ChevronDown, ChevronRight, X, Plus, PowerOff, Trash2 } from "lucide-react"
 import Image from "next/image"
 
+// Updated to include "delete" as a possible access state
+export type IntegrationAccess = "read" | "write" | "read-write" | "off" | "delete";
+
+// Mapping of integration names to logo filenames
+const LOGO_MAP: Record<string, string> = {
+  "notion": "notion-app-logo.png",
+  "gmail": "gmail-logo-official.png",
+  "google calendar": "google-calendar-logo-official.png",
+  "google contacts": "contacts-logo-official.png",
+  "discord": "discord-logo-official.png",
+  // Add more mappings as needed
+};
+
+// Accessible label mapping for access levels
+const ACCESS_LABELS: Record<IntegrationAccess, string> = {
+  "read": "Read",
+  "write": "Write",
+  "read-write": "All", // Changed from "Read & Write" to "All"
+  "off": "Off",
+  "delete": "Delete"
+};
+
+// Access styling based on current access level
+const ACCESS_STYLES: Record<IntegrationAccess, string> = {
+  "read": "bg-blue-600 hover:bg-blue-500 border-blue-400",
+  "write": "bg-green-600 hover:bg-green-500 border-green-400",
+  "read-write": "bg-purple-600 hover:bg-purple-500 border-purple-400",
+  "off": "bg-gray-700 hover:bg-gray-600 border-gray-600 text-gray-300",
+  "delete": "bg-red-600 hover:bg-red-500 border-red-400"
+};
+
+// Order for cycling through access levels
+const ACCESS_CYCLE: IntegrationAccess[] = ["read", "write", "read-write", "off", "delete"];
+
 interface IntegrationItemProps {
-  name: string
-  resources: string[]
-  onResourcesChange?: (resources: string[]) => void
-  onToggleChange?: (type: "read" | "write", value: boolean) => void
+  integrationName: string;
+  currentAccess: IntegrationAccess;
+  resources: string[];
+  onAccessChange: (newAccess: IntegrationAccess) => void;
+  onRemoveResource: (resourceName: string) => void;
+  onAddResource: (newResourceName: string) => void;
 }
 
 export function IntegrationItem({
-  name,
-  resources: initialResources,
-  onResourcesChange,
-  onToggleChange,
+  integrationName,
+  currentAccess,
+  resources,
+  onAccessChange,
+  onRemoveResource,
+  onAddResource,
 }: IntegrationItemProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [resources, setResources] = useState<string[]>(initialResources)
-  const [newResource, setNewResource] = useState("")
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [readEnabled, setReadEnabled] = useState(true)
-  const [writeEnabled, setWritEnabled] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [newResourceName, setNewResourceName] = useState("");
 
-  // Example resources based on integration type
-  const getExampleResources = () => {
-    switch (name) {
-      case "Notion":
-        return [
-          "Health Tracker",
-          "Family Journal",
-          "Meal Planner",
-          "Therapy Log",
-          "IEP Meeting Notes",
-          "Project Tracker",
-          "Meeting Notes",
-          "Trip Planning",
-          "Game Night Schedule",
-          "Chore List",
-          "Public Notes",
-        ]
-      case "Google Calendar":
-        return ["Family Calendar", "Work Calendar", "Personal Calendar", "Date Nights", "Friend Events", "Appointments"]
-      case "Gmail":
-        return ["Personal Inbox", "Work Inbox", "Friend Group", "Family Emails", "Newsletters", "Receipts"]
-      case "Google Contacts":
-        return ["Family Contacts", "Work Contacts", "Friends List", "Emergency Contacts", "Medical Providers"]
-      case "Discord":
-        return ["Family Server", "Gaming Server", "Movie Club", "Book Club", "Community Server", "Study Group"]
-      default:
-        return []
+  const getNextAccess = (current: IntegrationAccess): IntegrationAccess => {
+    const currentIndex = ACCESS_CYCLE.indexOf(current);
+    // If current access is not in the cycle (or is -1), start with "read"
+    const nextIndex = (currentIndex === -1) ? 0 : (currentIndex + 1) % ACCESS_CYCLE.length;
+    return ACCESS_CYCLE[nextIndex];
+  };
+
+  const getLogoSrc = (name: string): string => {
+    // Normalize the name (lowercase, trim)
+    const normalizedName = name.toLowerCase().trim();
+    
+    // First try exact match
+    if (LOGO_MAP[normalizedName]) {
+      return `/${LOGO_MAP[normalizedName]}`;
     }
-  }
-
-  const filteredResources = getExampleResources().filter(
-    (resource) => resource.toLowerCase().includes(newResource.toLowerCase()) && !resources.includes(resource),
-  )
-
-  const handleAddResource = (resource: string) => {
-    const updatedResources = [...resources, resource]
-    setResources(updatedResources)
-    setNewResource("")
-    setShowDropdown(false)
-    if (onResourcesChange) {
-      onResourcesChange(updatedResources)
-    }
-  }
-
-  const handleRemoveResource = (resourceToRemove: string) => {
-    const updatedResources = resources.filter((resource) => resource !== resourceToRemove)
-    setResources(updatedResources)
-    if (onResourcesChange) {
-      onResourcesChange(updatedResources)
-    }
-  }
-
-  const handleReadToggle = (checked: boolean) => {
-    setReadEnabled(checked)
-    if (onToggleChange) {
-      onToggleChange("read", checked)
-    }
-  }
-
-  const handleWriteToggle = (checked: boolean) => {
-    setWritEnabled(checked)
-    if (onToggleChange) {
-      onToggleChange("write", checked)
-    }
-  }
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false)
+    
+    // Then try partial match
+    for (const [key, logoPath] of Object.entries(LOGO_MAP)) {
+      if (normalizedName.includes(key) || key.includes(normalizedName)) {
+        return `/${logoPath}`;
       }
     }
+    
+    // Default fallback
+    return "/placeholder.png";
+  };
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
+  const handleAddResourceClick = () => {
+    if (newResourceName.trim()) {
+      onAddResource(newResourceName.trim());
+      setNewResourceName("");
     }
-  }, [])
+  };
 
-  const getIconSrc = () => {
-    switch (name) {
-      case "Notion":
-        return "/notion-app-logo.png"
-      case "Google Calendar":
-        return "/google-calendar-logo-official.png"
-      case "Gmail":
-        return "/gmail-logo-official.png"
-      case "Google Contacts":
-        return "/contacts-logo-official.png"
-      case "Discord":
-        return "/discord-logo-official.png"
-      default:
-        return "/placeholder.svg"
-    }
-  }
+  const handleAccessClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent header click
+    const nextAccess = getNextAccess(currentAccess);
+    onAccessChange(nextAccess);
+  };
+
+  // Add a class for delete mode
+  const isDeleteMode = currentAccess === "delete";
+  const isOffMode = currentAccess === "off";
 
   return (
-    <motion.div className="rounded-lg border border-gray-700/50 bg-gray-800/80 overflow-hidden" layout>
+    <div className={`bg-gray-800/70 rounded-xl overflow-hidden border border-gray-700/50 mb-3 shadow-md 
+      ${isOffMode ? "opacity-75" : ""} 
+      ${isDeleteMode ? "border-red-500/50 bg-red-900/10" : ""}`}>
       {/* Integration Header */}
-      <motion.div
-        className="flex items-center p-3 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/60 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="w-6 h-6 mr-3 relative flex items-center justify-center">
-          <Image
-            src={getIconSrc() || "/placeholder.svg"}
-            alt={name}
-            width={24}
-            height={24}
-            className="object-contain"
-          />
+        <div className="flex items-center space-x-3">
+          <div className="w-7 h-7 relative flex items-center justify-center bg-gray-700 rounded-md p-1">
+            <Image 
+              src={getLogoSrc(integrationName)}
+              alt={`${integrationName} logo`}
+              width={24}
+              height={24}
+              className={`object-contain ${isOffMode ? "opacity-50" : ""} ${isDeleteMode ? "opacity-30" : ""}`}
+              onError={(e) => {
+                // Fallback to placeholder if logo fails to load
+                (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+              }}
+            />
+          </div>
+          <h3 className={`font-medium ${isDeleteMode ? "text-red-300" : "text-gray-100"}`}>{integrationName}</h3>
         </div>
-        <div className="flex-1 font-medium text-sm text-gray-200">{name}</div>
-        <motion.div className="text-gray-400" animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronRight size={16} />
-        </motion.div>
-      </motion.div>
-
-      {/* Expanded Content */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            className="border-t border-gray-700/50 p-3 bg-gray-750"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+        <div className="flex items-center space-x-2">
+          {/* Access Toggle Button - Now just cycles through options */}
+          <button
+            onClick={handleAccessClick}
+            className={`px-3 py-1.5 text-xs rounded transition-colors border ${ACCESS_STYLES[currentAccess]} text-white font-medium flex items-center gap-1`}
           >
-            <div className="flex justify-between mb-3">
-              <div className="flex space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch id={`read-${name}`} checked={readEnabled} onCheckedChange={handleReadToggle} />
-                  <Label htmlFor={`read-${name}`} className="text-xs text-gray-300">
-                    Read
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id={`write-${name}`} checked={writeEnabled} onCheckedChange={handleWriteToggle} />
-                  <Label htmlFor={`write-${name}`} className="text-xs text-gray-300">
-                    Write
-                  </Label>
-                </div>
-              </div>
-            </div>
+            {isOffMode && <PowerOff size={12} className="mr-1" />}
+            {isDeleteMode && <Trash2 size={12} className="mr-1" />}
+            {ACCESS_LABELS[currentAccess]}
+          </button>
 
-            <h5 className="text-xs font-medium text-gray-400 mb-2">Tools</h5>
-            <motion.ul className="space-y-1 mb-3">
-              {resources.map((resource, index) => (
-                <motion.li
-                  key={resource}
-                  className="text-xs p-2 bg-gray-800 rounded border border-gray-700/50 text-gray-300 flex justify-between items-center"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <span>{resource}</span>
-                  <button
-                    className="text-gray-400 hover:text-gray-200 p-1 rounded-full hover:bg-gray-700/50"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemoveResource(resource)
-                    }}
-                  >
-                    <X size={12} />
-                  </button>
-                </motion.li>
-              ))}
-            </motion.ul>
+          <motion.div animate={{ rotate: isExpanded ? 0 : -90 }} className="text-gray-400">
+            {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </motion.div>
+        </div>
+      </div>
 
-            {/* Resource Picker */}
-            <div className="relative" ref={dropdownRef}>
-              <div className="flex items-center bg-gray-800 rounded border border-gray-700 focus-within:border-[#9B60FF] transition-colors">
-                <input
-                  type="text"
-                  placeholder="Add Tool"
-                  className="w-full bg-transparent border-none text-xs p-2 text-gray-300 focus:outline-none"
-                  value={newResource}
-                  onChange={(e) => {
-                    setNewResource(e.target.value)
-                    setShowDropdown(true)
+      {/* Resources List - Only show this if access is not "off" or "delete" */}
+      {isExpanded && (!isOffMode && !isDeleteMode) && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="space-y-2 p-3 pt-1"
+        >
+          {resources.length > 0 ? (
+            resources.map((resource) => (
+              <div key={resource} className="flex items-center justify-between bg-gray-800/70 rounded p-2 group">
+                <span className="text-sm text-gray-300 truncate" title={resource}>{resource}</span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveResource(resource);
                   }}
-                  onFocus={() => setShowDropdown(true)}
-                />
-                <button
-                  className="p-2 text-gray-400 hover:text-gray-200"
-                  onClick={() => {
-                    if (newResource.trim()) {
-                      handleAddResource(newResource.trim())
-                    }
-                  }}
+                  title="Remove resource"
+                  className="p-1 text-gray-500 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
                 >
-                  <Plus size={14} />
+                  <X size={16} />
                 </button>
               </div>
+            ))
+          ) : (
+            <div className="text-sm text-gray-500 italic p-2">No resources</div>
+          )}
+          
+          {/* Add Resource Input */}
+          <div className="flex items-center space-x-2 pt-2">
+            <input 
+              type="text"
+              value={newResourceName}
+              onChange={(e) => setNewResourceName(e.target.value)}
+              placeholder="New resource name..."
+              className="flex-grow text-sm bg-gray-700/80 text-gray-200 rounded px-2 py-1.5 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-[#9B60FF] placeholder-gray-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newResourceName.trim()) {
+                  handleAddResourceClick();
+                }
+              }}
+            />
+            <button
+              onClick={handleAddResourceClick}
+              disabled={!newResourceName.trim()}
+              className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50 transition-colors"
+              title="Add Resource"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        </motion.div>
+      )}
+      
+      {/* Confirmation message when access is Off */}
+      {isExpanded && isOffMode && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="p-3 pt-1"
+        >
+          <div className="text-sm text-gray-400 italic p-2">
+            This integration is disabled. Click the "Off" button to enable it.
+          </div>
+        </motion.div>
+      )}
 
-              {/* Dropdown - Fixed z-index issue */}
-              {showDropdown && filteredResources.length > 0 && (
-                <div
-                  className="fixed mt-1 w-full bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto"
-                  style={{
-                    zIndex: 99999,
-                    width: dropdownRef.current ? dropdownRef.current.offsetWidth : "auto",
-                    left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().left : 0,
-                    top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
-                  }}
-                >
-                  {filteredResources.map((resource) => (
-                    <div
-                      key={resource}
-                      className="text-xs p-2 hover:bg-gray-700 cursor-pointer text-gray-300"
-                      onClick={() => handleAddResource(resource)}
-                    >
-                      {resource}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {/* Confirmation message when in Delete mode */}
+      {isExpanded && isDeleteMode && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="p-3 pt-1"
+        >
+          <div className="text-sm text-red-400 italic p-2">
+            This integration will be deleted. Click the "Delete" button again to proceed.
+          </div>
+        </motion.div>
+      )}
+    </div>
   )
 }

@@ -1,11 +1,21 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ChevronRight, Save, Check, Copy, Phone, LinkIcon, Lock } from "lucide-react"
-import { IntegrationItem } from "./integration-item"
+import { ChevronRight, Save, Check, Copy, Phone, LinkIcon, Lock, Plus } from "lucide-react"
+import { IntegrationItem, type IntegrationAccess } from "./integration-item"
 import { motion, AnimatePresence } from "framer-motion"
 import { Textarea } from "@/components/ui/textarea"
 import { agentGroups, type AgentGroup } from "@/data/agent-groups"
+import { updateAgentConfig } from "@/actions/update-agent-config"
+
+// Import the SimplifiedMCPIntegration type from the server action
+// or define it locally to match the server action's expected shape
+interface SimplifiedMCPIntegration {
+  name: string;
+  mcp: string;
+  access: IntegrationAccess;
+  resources: string[];
+}
 
 interface AgentCardProps {
   id: string
@@ -21,7 +31,35 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [phoneNumberCopied, setPhoneNumberCopied] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
-  const [integrations, setIntegrations] = useState<AgentGroup["integrations"]>(agentData.integrations)
+  
+  // Adapt initial state to the new SimplifiedMCPIntegration structure
+  const [integrations, setIntegrations] = useState<SimplifiedMCPIntegration[]>(
+    agentData.mcpIntegrations.map(ig => {
+      // Create an integration with proper access level
+      const defaultAccess: IntegrationAccess = "read";
+      
+      // Try to determine access level from various potential sources
+      let access: IntegrationAccess = defaultAccess;
+      
+      // Check if ig has an 'access' property already
+      if ('access' in ig && typeof ig.access === 'string' && 
+          ["read", "write", "read-write", "off"].includes(ig.access)) {
+        access = ig.access as IntegrationAccess;
+      }
+      // Otherwise, we'll use the default "read" access
+      
+      return {
+        name: ig.name,
+        mcp: ig.mcp,
+        access: access,
+        resources: ig.resources || []
+      };
+    })
+  )
+  const [initialIntegrations, setInitialIntegrations] = useState<SimplifiedMCPIntegration[]>(
+    JSON.parse(JSON.stringify(integrations)) // Deep copy for initial state
+  )
+  
   const [hasChanges, setHasChanges] = useState(false)
 
   // Use refs to keep the values static
@@ -36,45 +74,104 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
 
   // Track changes
   useEffect(() => {
-    // Check if instructions have changed
     const instructionsChanged = instructions !== initialInstructions
+    const integrationsChanged = JSON.stringify(integrations) !== JSON.stringify(initialIntegrations)
+    const newHasChanges = instructionsChanged || integrationsChanged
+    if (newHasChanges !== hasChanges) {
+      setHasChanges(newHasChanges)
+    }
+    if (newHasChanges) {
+      console.log('Configuration changes detected for agent:', id, { instructionsChanged, integrationsChanged })
+    }
+  }, [instructions, initialInstructions, integrations, initialIntegrations, hasChanges, id])
 
-    // Check if integrations have changed (this is simplified and might need more complex logic)
-    const integrationsChanged = JSON.stringify(integrations) !== JSON.stringify(agentData.integrations)
-
-    setHasChanges(instructionsChanged || integrationsChanged)
-  }, [instructions, initialInstructions, integrations, agentData.integrations])
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!hasChanges) return
 
-    // Here you would implement the actual saving logic
+    // Show saving state
     setIsSaving(true)
 
-    // Simulate saving delay
-    setTimeout(() => {
-      // Update the initial values to match current values
-      setInitialInstructions(instructions)
-
-      // Reset the changes flag
-      setHasChanges(false)
-
-      // After "saving", collapse the dropdown
-      setTimeout(() => {
-        onToggle()
-        // Reset the button state after the card is collapsed
+    try {
+      console.log('Saving configuration for agent:', id)
+      
+      // Filter out or convert access types before saving
+      const updatedConfigForStorage = {
+        systemPrompt: instructions,
+        // Filter out integrations marked for deletion, and map "off" to "read"
+        mcpIntegrations: integrations
+          .filter(ig => ig.access !== "delete") // Don't save integrations marked for deletion
+          .map(ig => ({
+            ...ig,
+            // Ensure only valid access values for the server
+            access: ig.access === "off" ? "read" : 
+                   (ig.access === "delete" ? "read" : ig.access) // This should not happen due to filter above, but just for type safety
+          }))
+      }
+      
+      console.log('Sending update with config:', JSON.stringify(updatedConfigForStorage, null, 2))
+      
+      // Call the server action to update the configuration
+      const success = await updateAgentConfig(id, updatedConfigForStorage)
+      
+      if (success) {
+        console.log('Successfully saved configuration for agent:', id)
+        // Update the initial values to match current values
+        setInitialInstructions(instructions)
+        setInitialIntegrations(JSON.parse(JSON.stringify(integrations))) // Deep copy for new initial state
+        
+        // Reset the changes flag
+        setHasChanges(false)
+        
+        // After successful save, collapse the dropdown
         setTimeout(() => {
-          setIsSaving(false)
-        }, 300)
-      }, 1000)
-    }, 500)
+          onToggle()
+          // Reset the button state after the card is collapsed
+          setTimeout(() => {
+            setIsSaving(false)
+          }, 300)
+        }, 1000)
+      } else {
+        // Handle error
+        console.error("Failed to save agent configuration for agent:", id)
+        setIsSaving(false) // Ensure saving state is reset on failure
+      }
+    } catch (error) {
+      console.error("Error saving agent configuration:", error)
+      if (error instanceof Error) {
+        console.error("Error details:", error.message, "Stack:", error.stack)
+      }
+      setIsSaving(false) // Ensure saving state is reset on error
+    }
   }
 
-  const handleResourcesChange = (integrationName: string, newResources: string[]) => {
-    const updatedIntegrations = integrations.map((integration) =>
-      integration.name === integrationName ? { ...integration, resources: newResources } : integration,
+  // Handler for changing integration-level access
+  const handleIntegrationAccessChange = (integrationName: string, newAccess: IntegrationAccess) => {
+    setIntegrations(prev => 
+      prev.map(ig => ig.name === integrationName ? { ...ig, access: newAccess } : ig)
     )
-    setIntegrations(updatedIntegrations)
+  }
+
+  // Handler for removing a resource from an integration
+  const handleRemoveResource = (integrationName: string, resourceNameToRemove: string) => {
+    setIntegrations(prev => 
+      prev.map(ig => 
+        ig.name === integrationName 
+          ? { ...ig, resources: ig.resources.filter(r => r !== resourceNameToRemove) } 
+          : ig
+      )
+    )
+  }
+
+  // Handler for adding a resource to an integration
+  const handleAddResource = (integrationName: string, newResourceName: string) => {
+    setIntegrations(prev =>
+      prev.map(ig => {
+        if (ig.name === integrationName && !ig.resources.includes(newResourceName)) {
+          return { ...ig, resources: [...ig.resources, newResourceName] }
+        }
+        return ig
+      })
+    )
   }
 
   const copyToClipboard = (text: string, type: "phone" | "link") => {
@@ -109,7 +206,7 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
         </div>
         <div className="ml-3 flex-1">
           <h3 className="font-medium text-gray-100">{agentData.name}</h3>
-          <p className="text-sm text-gray-400">{agentData.integrations.length} integrations</p>
+          <p className="text-sm text-gray-400">{integrations.length} integrations</p>
         </div>
         <motion.div className="text-gray-400" animate={{ rotate: isExpanded ? 90 : 0 }}>
           <ChevronRight size={20} />
@@ -153,7 +250,7 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
                     transition={{ duration: 0.2 }}
                     className="space-y-2"
                   >
-                    {integrations.map((integration, index) => (
+                    {integrations.map((integration, index: number) => (
                       <motion.div
                         key={integration.name}
                         initial={{ opacity: 0, x: -10 }}
@@ -161,16 +258,33 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
                         transition={{ delay: index * 0.05 }}
                       >
                         <IntegrationItem
-                          name={integration.name}
+                          integrationName={integration.name}
+                          currentAccess={integration.access}
                           resources={integration.resources}
-                          onResourcesChange={(newResources) => handleResourcesChange(integration.name, newResources)}
-                          onToggleChange={(type, value) => {
-                            // This would update the integration's read/write permissions
-                            setHasChanges(true)
-                          }}
+                          onAccessChange={(newAccess) => 
+                            handleIntegrationAccessChange(integration.name, newAccess)
+                          }
+                          onRemoveResource={(resourceName) => 
+                            handleRemoveResource(integration.name, resourceName)
+                          }
+                          onAddResource={(newResourceName) => 
+                            handleAddResource(integration.name, newResourceName)
+                          }
                         />
                       </motion.div>
                     ))}
+                    
+                    {/* Add Integration Button */}
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: integrations.length * 0.05 + 0.1 }}
+                      className="w-full mt-3 flex items-center justify-center py-2 px-4 rounded-md text-sm font-medium text-[#9B60FF] border border-dashed border-[#9B60FF]/50 hover:bg-[#9B60FF]/10 transition-colors"
+                      onClick={() => console.log("Add integration clicked (non-functional demo)")}
+                    >
+                      <Plus size={16} className="mr-2" />
+                      <span>Integration</span>
+                    </motion.button>
                   </motion.div>
                 ) : activeTab === "instructions" ? (
                   <motion.div
@@ -203,7 +317,7 @@ export function AgentCard({ id, isExpanded, onToggle }: AgentCardProps) {
                             key={index}
                             className="bg-gray-800/70 border border-gray-700/50 rounded-md p-2 text-xs text-gray-300"
                           >
-                            {info}
+                            {info.content}
                           </div>
                         ))}
                       </div>

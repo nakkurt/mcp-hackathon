@@ -58,14 +58,14 @@ export function NewButtonMenu({ onSelectOption }: NewButtonMenuProps) {
                 onClick={() => handleOptionClick("agent")}
               >
                 <Users size={16} className="mr-2 text-[#9B60FF]" />
-                <span>New Agent Group</span>
+                <span>Agent</span>
               </button>
               <button
                 className="w-full flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 transition-colors"
                 onClick={() => handleOptionClick("integration")}
               >
                 <Server size={16} className="mr-2 text-[#9B60FF]" />
-                <span>New Integration</span>
+                <span>Integration</span>
               </button>
             </div>
           </motion.div>
