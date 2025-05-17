@@ -1,4 +1,4 @@
-# MCP Hackathon Frontend
+# Cotext.ai: No-code Personal Agents
 
 ## Quickstart Guide
 
@@ -124,27 +124,36 @@ This allows private data to be securely stored and managed by MCPs, rather than 
 
 ---
 
-## 5. Testing the API Key
-- Visit: [http://localhost:3000/api/test-anthropic](http://localhost:3000/api/test-anthropic)
-- A JSON response with a preview of your key indicates success.
+## 5. Project Structure
+
+```
+mcp-agent-messenger/
+├── .env                      # API keys and environment variables
+├── package.json              # Monorepo & dependencies
+├── actions/
+│   ├── anthropic-api.ts      # Sends messages to agents on behalf of other people
+│   └── personal-agent-api.ts # Sends messages to user's own personal agent (full context)
+├── data/
+│   └── agent-groups.ts       # Static JSON config (systemPrompt, privateInfo, MCP tools/resources)
+├── app/
+│   ├── chats/
+│   │   ├── [id]/page.tsx     # Chat UI for others messaging a specific agent
+│   │   └── page.tsx          # Admin view of all agent message threads
+│   ├── me/page.tsx           # User’s personal agent UI (cross-group context)
+│   ├── layout.tsx            # Shared layout
+│   └── globals.css           # Tailwind setup (base, components, utilities)
+```
 
 ---
 
-## 6. Project Structure
-- `mcp-agent-messenger/`: Main frontend Next.js app.
-- `mcp-agent-messenger/.env`: API keys and environment variables.
-- `package.json` (root): Monorepo workspace config.
-
----
-
-## 7. Troubleshooting
+## 6. Troubleshooting
 - **API Key Not Found**: Ensure `mcp-agent-messenger/.env` exists and `COTEXT_ANTHROPIC_KEY_TEST` is set. Restart the dev server.
 - **Dependency Issues**: Run `pnpm install` from the root.
 - **Prompt Issues**: In `actions/anthropic-api.ts`, ensure `privateInfo` is correctly processed (e.g., `privateInfo.map(info => info.content).join("\n")`) to avoid sending `[object Object]` to the LLM for the hardcoded content.
 
 ---
 
-## 8. Useful Scripts
+## 7. Useful Scripts
 - `npm run dev`: Starts the dev server (from root).
 - `pnpm install`: Installs dependencies (from root).
 
