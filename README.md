@@ -141,7 +141,7 @@ mcp-agent-messenger/
 │   │   └── page.tsx          # Admin view of all agent message threads
 │   ├── me/page.tsx           # User’s personal agent UI (cross-group context)
 │   ├── layout.tsx            # Shared layout
-│   └── globals.css           # Styles
+│   └── globals.css           # Tailwind setup (base, components, utilities)
 ```
 
 ---
