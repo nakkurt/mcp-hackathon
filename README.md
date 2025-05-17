@@ -1,4 +1,4 @@
-# Cotext.ai: No-code Personal Agents
+# MCP Hackathon Frontend
 
 ## Quickstart Guide
 
@@ -150,5 +150,5 @@ This allows private data to be securely stored and managed by MCPs, rather than 
 
 ---
 
-## 9. Contact
-For issues, contact the project maintainer or open an issue.
+## 7. Contact
+For any issues, reach out to the project maintainer or open an issue in the repository.
