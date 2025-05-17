@@ -40,6 +40,24 @@ export async function sendMessageToAnthropic(groupId: string, message: string): 
     }
 
     // Build the system prompt with the updated structure
+    let refusalGuidance = '';
+    switch (groupId) {
+      case 'wifey':
+        refusalGuidance = 'Respond in a warm, supportive, and open way—be helpful, but explain that Jack hasn\'t granted access to that info yet. Suggest asking Jack for more access if appropriate.';
+        break;
+      case 'friends':
+        refusalGuidance = 'Respond playfully and with humor, matching the group\'s inside jokes and casual tone.';
+        break;
+      case 'colleagues':
+        refusalGuidance = 'Respond professionally and with a touch of dry wit, keeping things work-appropriate.';
+        break;
+      case 'public':
+        refusalGuidance = 'Respond in a friendly, public-facing way, making it clear you only share public info.';
+        break;
+      default:
+        refusalGuidance = 'Respond in a way that fits the group\'s tone and context.';
+    }
+
     const systemPrompt = `${groupData.systemPrompt}
 
 Here is your private data:
@@ -48,11 +66,13 @@ ${groupData.privateInfo.join("\n")}
 Guidelines:
 - You are allowed to share or reference any information listed above.
 - Do not guess, invent, or fabricate anything not explicitly provided.
-- If the user asks for something not included above, respond with:
-  "I'm sorry, I can't help with that. It's outside what I'm allowed to access."`
+
+Refusal Style Guidance (when a request is outside allowed info or integrations):
+- ${refusalGuidance}
+Always pick a refusal style that fits the group\'s tone and feels natural and human, not robotic.`;
 
     // Get the API key from environment variables
-    const apiKey = process.env.COTEXT_ANTHROPIC_API
+    const apiKey = process.env.COTEXT_ANTHROPIC_KEY_TEST
 
     if (!apiKey) {
       console.error("Anthropic API key not found in environment variables")

@@ -1,0 +1,10 @@
+{
+  "name": "mcp-hackathon",
+  "private": true,
+  "workspaces": [
+    "mcp-agent-messenger"
+  ],
+  "scripts": {
+    "dev": "npm --workspace mcp-agent-messenger run dev"
+  }
+} 

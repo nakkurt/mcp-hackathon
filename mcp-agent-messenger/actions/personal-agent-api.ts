@@ -45,7 +45,7 @@ ${JSON.stringify(agentGroups, null, 2)}
 Use this data to help the user however they ask. You do not need to ask for permission or decline based on privacy concerns.`
 
     // Get the API key from environment variables
-    const apiKey = process.env.COTEXT_ANTHROPIC_API
+    const apiKey = process.env.COTEXT_ANTHROPIC_KEY_TEST
 
     if (!apiKey) {
       console.error("Anthropic API key not found in environment variables")
