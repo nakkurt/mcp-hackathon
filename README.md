@@ -1,4 +1,4 @@
-# MCP Hackathon Frontend
+# Cotext.ai: No-code Personal Agents
 
 ## Quickstart Guide
 
