@@ -189,7 +189,7 @@ async function callLangflowWithTimeout(message: string, config?: { groupId: stri
 
     // Use a test endpoint that will likely fail or timeout to test the fallback
     const response = await axios.post("https://9a653093-a47d-4396-bf5c-b2becdafe672.debugg.ai/api/v1/run/co-text-primary-agent-1?stream=false",
-      JSON.stringify(payload),
+      payload,
       {
         headers: {
           "Authorization": `Bearer ${process.env.LANGFLOW_API_KEY}`,
