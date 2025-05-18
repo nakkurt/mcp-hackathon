@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { ArrowLeft, Send, Paperclip } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MobileFrame } from "./mobile-frame"
-import { sendMessageToAnthropic } from "@/actions/anthropic-api"
+import { sendMessageToAnthropic, callAgentWithFallback } from "@/actions/anthropic-api"
 
 interface ChatMessage {
   id: string
@@ -97,7 +97,7 @@ export function DualChatView({
       console.log(`Calling Anthropic API for group ${groupId} with message:`, newSarahMessage.content)
 
       // Call Anthropic API
-      const response = await sendMessageToAnthropic(groupId, newSarahMessage.content)
+      const response = await callAgentWithFallback(newSarahMessage.content, { groupId })
       console.log(`Received response from Anthropic API:`, response)
 
       // Create the agent message

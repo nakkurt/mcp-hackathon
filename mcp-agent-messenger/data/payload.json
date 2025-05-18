@@ -1,0 +1,6 @@
+{
+  "input_value": "{\"user\":\"self\",\"message\":\"hello\",\"config\":{}}",
+  "output_type": "chat",
+  "input_type": "chat",
+  "session_id": "test_minimal"
+}

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { ArrowLeft, Send, Paperclip, AlertCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
-import { sendMessageToAnthropic } from "@/actions/anthropic-api"
+import { sendMessageToAnthropic, callAgentWithFallback } from "@/actions/anthropic-api"
 
 interface ChatMessage {
   id: string
@@ -65,10 +65,10 @@ export function ChatConversation({
     setIsLoading(true)
 
     try {
-      console.log("About to call Anthropic API with message:", userMessageContent)
+      console.log("About to call API with message:", userMessageContent)
 
-      // Call Anthropic API
-      const response = await sendMessageToAnthropic(groupId, userMessageContent)
+      // Call API with fallback mechanism
+      const response = await callAgentWithFallback(userMessageContent, { groupId })
       console.log("Received API response:", response)
 
       if (response) {
