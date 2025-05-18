@@ -1,7 +1,7 @@
 "use server"
 
 import { agentGroups } from "@/data/agent-groups"
-
+import axios from "axios"
 interface AnthropicMessage {
   role: "user" | "assistant"
   content: string
@@ -143,7 +143,7 @@ Always keep your responses conversational and natural. Use a warm, casual tone t
   }
 }
 
-export async function callAgentWithFallback(message: string, config = {}): Promise<string> {
+export async function callAgentWithFallback(message: string, config: any): Promise<string> {
   console.log("==== Starting callAgentWithFallback ====");
   console.log("Message:", message);
   
@@ -161,21 +161,23 @@ export async function callAgentWithFallback(message: string, config = {}): Promi
   }
 }
 
-async function callLangflowWithTimeout(message: string, config = {}): Promise<string> {
+async function callLangflowWithTimeout(message: string, config?: { groupId: string }): Promise<string> {
   // Create controller for timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     console.log("Langflow API call timed out after 10 seconds");
     controller.abort();
-  }, 10000); // 10 seconds timeout
+  }, 100000); // 10 seconds timeout
 
+  const generalConfig = agentGroups  // [config?.groupId || "wifey"]
   try {
     const payload = {
       session_id: "test_minimal",
       input_value: JSON.stringify({
         user: "self",
+        group: config?.groupId,
         message: message,
-        config: config
+        config: generalConfig
       }),
       output_type: "chat",
       input_type: "chat"
@@ -186,15 +188,16 @@ async function callLangflowWithTimeout(message: string, config = {}): Promise<st
     console.log("Langflow endpoint URL:", "https://langflow-test-endpoint.example.com");
 
     // Use a test endpoint that will likely fail or timeout to test the fallback
-    const response = await fetch("https://langflow-test-endpoint.example.com", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-
+    const response = await axios.post("https://9a653093-a47d-4396-bf5c-b2becdafe672.debugg.ai/api/v1/run/co-text-primary-agent-1?stream=false",
+      payload,
+      {
+        headers: {
+          "Authorization": `Bearer ${process.env.LANGFLOW_API_KEY}`,
+          "x-api-key": process.env.LANGFLOW_API_KEY,
+          "Content-Type": "application/json"
+        }
+      }
+    );
     clearTimeout(timeoutId);
     
     console.log(`Langflow API response status: ${response.status}`);
